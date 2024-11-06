@@ -104,8 +104,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
           final pages = snapshot.data!;
           return Stack(
             children: [
-              // Page View
+              // Modified PageView
               PageView.builder(
+                scrollDirection: Axis.vertical,
                 controller: _pageController,
                 itemCount: pages.length,
                 onPageChanged: (index) {
@@ -148,9 +149,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 },
               ),
 
-              // Navigation Overlay
+              // Modify navigation overlay for vertical scrolling
               Positioned.fill(
-                child: Row(
+                child: Column(
                   children: [
                     // Previous page touch area
                     Expanded(

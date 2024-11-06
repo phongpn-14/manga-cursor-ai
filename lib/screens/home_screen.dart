@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/manga.dart';
 import '../screens/chapter_list_screen.dart';
-import '../models/chapter.dart';
 import '../services/manga_service.dart';
 
 class HomeScreen extends StatefulWidget {
