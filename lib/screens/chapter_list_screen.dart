@@ -60,7 +60,7 @@ class _ChapterListScreenState extends State<ChapterListScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ReaderScreen(chapter: chapter),
+                      builder: (context) => ReaderScreen(chapter: chapter, mangaId: widget.manga.id),
                     ),
                   );
                 },

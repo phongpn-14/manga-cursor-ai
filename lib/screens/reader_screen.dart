@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/services/reading_progress_service.dart';
 import '../models/chapter.dart';
 import '../services/manga_service.dart';
 
 class ReaderScreen extends StatefulWidget {
   final Chapter chapter;
-
-  const ReaderScreen({super.key, required this.chapter});
+  final int initialPage;
+  final String mangaId;
+  
+  const ReaderScreen({super.key, required this.chapter, this.initialPage = 0, required this.mangaId});
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
@@ -13,8 +16,10 @@ class ReaderScreen extends StatefulWidget {
 
 class _ReaderScreenState extends State<ReaderScreen> {
   final _mangaService = MangaService();
+  final _progressService = ReadingProgressService();
+
   late Future<List<String>> _pages;
-  final _pageController = PageController();
+  late PageController _pageController;
   int _currentPage = 1;
   final Map<int, Widget> _cachedImages = {};
   final int _preloadDistance = 2; // Number of pages to preload ahead
@@ -22,11 +27,21 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _currentPage = widget.initialPage + 1;
+    _pageController = PageController(initialPage: widget.initialPage);
     _pages = _mangaService.getChapterPages(widget.chapter.id);
     _pages.then((pages) {
       // Start preloading first few pages
       _preloadImages(0, pages);
     });
+  }
+
+   void _saveProgress() {
+    _progressService.saveProgress(
+      widget.chapter.id,  // Add mangaId to your Chapter model if not exists
+      widget.chapter,
+      _currentPage
+    );
   }
 
   void _nextPage() {
@@ -114,6 +129,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     _currentPage = index + 1;
                     // Add preloading here to ensure it happens on every page change
                     _preloadImages(index, pages);
+                    _saveProgress();  // Save progress when page changes
+
                   });
                 },
                 itemBuilder: (context, index) {

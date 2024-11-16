@@ -3,54 +3,48 @@ import '../services/manga_service.dart';
 class Manga {
   final String id;
   final String title;
+  final String? description;
   final String? coverUrl;
-  final List<String> authors;
+  final String? author;
+  final DateTime? createdAt;
+  final int? chapterCount;
 
   Manga({
     required this.id,
     required this.title,
+    this.description,
     this.coverUrl,
-    required this.authors,
+    this.author,
+    this.createdAt,
+    this.chapterCount,
   });
 
   factory Manga.fromJson(Map<String, dynamic> json) {
-    final attributes = json['attributes'] as Map<String, dynamic>;
+    final attributes = json['attributes'];
+    final relationships = json['relationships'] as List;
     
-    // Handle title properly
-    final titleMap = attributes['title'] as Map<String, dynamic>;
-    final title = titleMap['en'] ?? titleMap.values.first ?? 'No Title';
-
-    // Handle relationships for authors and cover art
-    final relationships = (json['relationships'] as List<dynamic>?) ?? [];
-    
-    // Get authors
-    final authors = relationships
-        .where((rel) => rel['type'] == 'author')
-        .map((rel) => (rel['attributes']?['name'] ?? 'Unknown Author') as String)
-        .toList();
-
-    // If no authors found, add 'Unknown Author'
-    if (authors.isEmpty) {
-      authors.add('Unknown Author');
-    }
-
-    // Get cover art
     String? coverFileName;
-    final coverRel = relationships.firstWhere(
-      (rel) => rel['type'] == 'cover_art',
-      orElse: () => null,
-    );
-    if (coverRel != null && coverRel['attributes'] != null) {
-      coverFileName = coverRel['attributes']['fileName'] as String?;
+    String? authorName;
+
+    for (var rel in relationships) {
+      if (rel['type'] == 'cover_art') {
+        coverFileName = rel['attributes']?['fileName'];
+      }
+      if (rel['type'] == 'author') {
+        authorName = rel['attributes']?['name'];
+      }
     }
 
     return Manga(
-      id: json['id'] as String,
-      title: title,
+      id: json['id'],
+      title: attributes['title']['en'] ?? 'No Title',
+      description: attributes['description']?['en'],
       coverUrl: coverFileName != null 
-          ? MangaService.getCoverUrl(json['id'] as String, coverFileName)
+          ? 'https://uploads.mangadex.org/covers/${json['id']}/$coverFileName'
           : null,
-      authors: authors,
+      author: authorName,
+      createdAt: DateTime.tryParse(attributes['createdAt']),
+      chapterCount: attributes['chapterCount'],
     );
   }
 }

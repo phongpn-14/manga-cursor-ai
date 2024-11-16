@@ -73,4 +73,33 @@ class MangaService {
     if (fileName == null) return null;
     return '$coverBaseUrl/$mangaId/$fileName';
   }
+
+   Future<Manga> getManga(String id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/manga/$id?includes[]=cover_art&includes[]=author'),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return Manga.fromJson(data['data']);
+    }
+    throw Exception('Failed to load manga with id: $id');
+  }
+
+  // Helper method to get cover art URL
+  Future<String?> getMangaCoverUrl(String mangaId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/cover?manga[]=$mangaId'),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final covers = data['data'] as List;
+      if (covers.isNotEmpty) {
+        final fileName = covers.first['attributes']['fileName'];
+        return 'https://uploads.mangadex.org/covers/$mangaId/$fileName';
+      }
+    }
+    return null;
+  }
 }

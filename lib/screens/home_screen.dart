@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/services/manga_service.dart';
 import '../models/manga.dart';
-import '../screens/chapter_list_screen.dart';
-import '../services/manga_service.dart';
+import '../services/reading_progress_service.dart';
+import 'manga_detail_screen.dart';
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,21 +13,37 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _progressService = ReadingProgressService();
   final _mangaService = MangaService();
-  final _searchController = TextEditingController();
-  Future<List<Manga>>? _searchResults;
+  bool _isSearching = false;
+  late Future<List<Manga>> _recentManga;
 
-  void _performSearch(String query) {
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults = null;
-      });
-      return;
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentManga();
+  }
 
+  Future<void> _loadRecentManga() async {
     setState(() {
-      _searchResults = _mangaService.searchManga(query);
+      _recentManga = _getRecentlyReadManga();
     });
+  }
+
+  Future<List<Manga>> _getRecentlyReadManga() async {
+    final recentIds = await _progressService.getRecentMangaIds();
+    final mangas = <Manga>[];
+    
+    for (final id in recentIds) {
+      try {
+        final manga = await _mangaService.getManga(id);
+        mangas.add(manga);
+      } catch (e) {
+        print('Error loading manga $id: $e');
+      }
+    }
+    
+    return mangas;
   }
 
   @override
@@ -33,124 +51,148 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MangaDex Reader'),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SearchBar(
-              controller: _searchController,
-              hintText: 'Search manga...',
-              onSubmitted: _performSearch,
-              leading: const Icon(Icons.search),
-            ),
-          ),
-          Expanded(
-            child: _searchResults == null
-                ? const Center(
-                    child: Text('Search for manga'),
-                  )
-                : FutureBuilder<List<Manga>>(
-                    future: _searchResults,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      }
-
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                                size: 60,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Error: ${snapshot.error}',
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _searchResults = _mangaService
-                                        .searchManga(_searchController.text);
-                                  });
-                                },
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      final mangas = snapshot.data!;
-                      if (mangas.isEmpty) {
-                        return const Center(
-                          child: Text('No manga found'),
-                        );
-                      }
-
-                      return ListView.builder(
-                        itemCount: mangas.length,
-                        itemBuilder: (context, index) {
-                          final manga = mangas[index];
-                          return ListTile(
-                            leading: SizedBox(
-                              width: 50,
-                              height: 70,
-                              child: manga.coverUrl != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: Image.network(
-                                        manga.coverUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return const Icon(Icons.book);
-                                        },
-                                        loadingBuilder:
-                                            (context, child, loadingProgress) {
-                                          if (loadingProgress == null) {
-                                            return child;
-                                          }
-                                          return const Center(
-                                            child: CircularProgressIndicator(),
-                                          );
-                                        },
-                                      ),
-                                    )
-                                  : const Icon(Icons.book),
-                            ),
-                            title: Text(manga.title),
-                            subtitle: Text(manga.authors.join(', ')),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ChapterListScreen(manga: manga),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SearchScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
+      body: FutureBuilder<List<Manga>>(
+        future: _recentManga,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('Error: ${snapshot.error}'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadRecentManga,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final mangas = snapshot.data ?? [];
+
+          if (mangas.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.menu_book, size: 48, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text('No recent manga'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SearchScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('Search Manga'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return GridView.builder(
+            padding: const EdgeInsets.all(8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.7,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: mangas.length,
+            itemBuilder: (context, index) {
+              final manga = mangas[index];
+              return MangaCard(manga: manga);
+            },
+          );
+        },
+      ),
     );
   }
+}
+
+class MangaCard extends StatelessWidget {
+  final Manga manga;
+
+  const MangaCard({super.key, required this.manga});
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MangaDetailScreen(manga: manga),
+          ),
+        );
+      },
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: manga.coverUrl != null
+                  ? Image.network(
+                      manga.coverUrl!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(child: Icon(Icons.broken_image)),
+                    )
+                  : const Center(child: Icon(Icons.book)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    manga.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  if (manga.author != null)
+                    Text(
+                      manga.author!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
