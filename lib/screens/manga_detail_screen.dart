@@ -41,11 +41,25 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
               chapter: chapter,
               initialPage: lastPageNumber,
               mangaId: widget.manga.id,
+              manga: widget.manga,
             ),
           ),
         );
       }
     }
+  }
+
+  void _openReader(Chapter chapter) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReaderScreen(
+          chapter: chapter,
+          mangaId: widget.manga.id,
+          manga: widget.manga,
+        ),
+      ),
+    );
   }
 
   @override
@@ -159,16 +173,8 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                             title: Text('Chapter ${chapter.chapterNumber}'),
                             subtitle: Text(chapter.title),
                             onTap: () {
-                              _progressService.saveProgress(widget.manga.id, chapter, 1);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ReaderScreen(
-                                    chapter: chapter,
-                                    mangaId: widget.manga.id,
-                                  ),
-                                ),
-                              );
+                              _progressService.saveProgress(widget.manga.id, chapter, 1, widget.manga);
+                              _openReader(chapter);
                             },
                           );
                         },

@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/models/manga.dart';
 import 'package:my_app/services/reading_progress_service.dart';
 import '../models/chapter.dart';
 import '../services/manga_service.dart';
+import '../services/recent_manga_service.dart';
 
 class ReaderScreen extends StatefulWidget {
   final Chapter chapter;
   final int initialPage;
   final String mangaId;
+  final Manga manga;
   
-  const ReaderScreen({super.key, required this.chapter, this.initialPage = 0, required this.mangaId});
-
+ const ReaderScreen({
+    super.key, 
+    required this.chapter, 
+    this.initialPage = 0, 
+    required this.mangaId,
+    required this.manga,  // Add this
+  });
+  
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
 }
@@ -17,6 +26,7 @@ class ReaderScreen extends StatefulWidget {
 class _ReaderScreenState extends State<ReaderScreen> {
   final _mangaService = MangaService();
   final _progressService = ReadingProgressService();
+  final _recentMangaService = RecentMangaService();
 
   late Future<List<String>> _pages;
   late PageController _pageController;
@@ -34,13 +44,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
       // Start preloading first few pages
       _preloadImages(0, pages);
     });
+    _addToRecent();
   }
 
-   void _saveProgress() {
+  Future<void> _addToRecent() async {
+    await _recentMangaService.addToRecent(widget.manga);
+  }
+
+  void _saveProgress() {
     _progressService.saveProgress(
-      widget.chapter.id,  // Add mangaId to your Chapter model if not exists
+      widget.mangaId,
       widget.chapter,
-      _currentPage
+      _currentPage,
+      widget.manga,  // Add manga parameter
     );
   }
 
